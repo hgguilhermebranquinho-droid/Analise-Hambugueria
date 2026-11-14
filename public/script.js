@@ -67,6 +67,7 @@ const elements = {
   totalSales: document.getElementById('total-sales'),
   totalUnits: document.getElementById('total-units'),
   averageTicket: document.getElementById('average-ticket'),
+  dashboardPanel: document.getElementById('dashboard-panel'),
   status: document.getElementById('status-message'),
   source: document.getElementById('data-source'),
   demoBadge: document.querySelector('.demo-badge'),
@@ -75,6 +76,25 @@ const elements = {
 
 function formatMoney(value) {
   return moneyFormat.format(Number.isFinite(value) ? value : 0);
+}
+
+function activateView(tab, moveFocus = false) {
+  const wasSelected = tab.getAttribute('aria-selected') === 'true';
+  const tabs = [...document.querySelectorAll('.view-tab')];
+
+  tabs.forEach((item) => {
+    const selected = item === tab;
+    const panel = document.getElementById(item.getAttribute('aria-controls'));
+    item.setAttribute('aria-selected', String(selected));
+    item.tabIndex = selected ? 0 : -1;
+    panel.hidden = !selected;
+    panel.setAttribute('aria-hidden', String(!selected));
+  });
+
+  if (moveFocus) tab.focus();
+  if (!wasSelected && tab.id === 'dashboard-tab') {
+    requestAnimationFrame(() => renderCharts(visibleRows));
+  }
 }
 
 function escapeHtml(value) {
@@ -325,7 +345,7 @@ function render() {
   elements.totalUnits.textContent = numberFormat.format(metrics.units);
   elements.averageTicket.textContent = formatMoney(metrics.averageTicket);
   renderTable(visibleRows);
-  renderCharts(visibleRows);
+  if (!elements.dashboardPanel.hidden) renderCharts(visibleRows);
 }
 
 function readHeaderMap(fields) {
@@ -458,6 +478,21 @@ document.querySelectorAll('button[data-sort]').forEach((button) => button.addEve
   sortState = { key, direction: sortState.key === key ? -sortState.direction : 1 };
   render();
 }));
+
+const viewTabs = [...document.querySelectorAll('.view-tab')];
+viewTabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => activateView(tab));
+  tab.addEventListener('keydown', (event) => {
+    let nextIndex = index;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % viewTabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + viewTabs.length) % viewTabs.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = viewTabs.length - 1;
+    else return;
+    event.preventDefault();
+    activateView(viewTabs[nextIndex], true);
+  });
+});
 
 refreshOptions();
 render();
